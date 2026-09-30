@@ -1,3 +1,4 @@
+import os
 import random
 import discord
 from discord.ext import commands
@@ -134,6 +135,5 @@ async def 메뉴(interaction: discord.Interaction):
     embed.set_footer(text="채팅창에 / 를 입력하면 목록에서 쉽게 찾아 선택할 수 있습니다!")
     await interaction.response.send_message(embed=embed)
 
-
-# 봇 토큰 실행
-bot.run('MTU1NDA4NTE0MTkwNTY3ODM0Nw.GZMvy_.mGj6ESqnIwFatzQF6bNe_YOshovQcWUXE8XA9I')
+token = os.environ.get("DISCORD_TOKEN")
+bot.run(token)
