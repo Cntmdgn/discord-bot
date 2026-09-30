@@ -1,2 +1,7 @@
 discord.py
 flask
+
+discord.py
+flask
+PyNaCl
+yt-dlp
