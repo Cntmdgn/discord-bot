@@ -1,8 +1,28 @@
 import os
 import random
+import threading
+from flask import Flask
 import discord
 from discord.ext import commands
 from discord import app_commands
+
+# --- Render 웹 포트 응답용 서버 ---
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "Bot is running!"
+
+def run_web():
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host='0.0.0.0', port=port)
+
+threading.Thread(target=run_web, daemon=True).start()
+# ---------------------------------
+
+# 봇 기본 설정
+intents = discord.Intents.default()
+# ... (이하 기존 코드 그대로 유지) ...
 
 # 봇 기본 설정
 intents = discord.Intents.default()
