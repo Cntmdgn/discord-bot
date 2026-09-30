@@ -1,4 +1,6 @@
 import os
+import imageio_ffmpeg
+os.environ["PATH"] += os.pathsep + os.path.dirname(imageio_ffmpeg.get_ffmpeg_exe())
 import random
 import threading
 from flask import Flask
@@ -130,53 +132,6 @@ async def 제비뽑기(interaction: discord.Interaction, 항목들: str):
         return
     await interaction.response.send_message(f'🎉 뽑힌 항목은 바로 **[{random.choice(items)}]** 입니다!')
 
-# ================= 노래 봇 기능 =================
-
-@bot.tree.command(name="재생", description="유튜브 링크를 입력해 음악을 재생합니다.")
-async def play(interaction: discord.Interaction, url: str):
-    if not interaction.user.voice:
-        await interaction.response.send_message("❌ 먼저 음성 채널에 접속해 주세요!")
-        return
-
-    channel = interaction.user.voice.channel
-    voice_client = discord.utils.get(bot.voice_clients, guild=interaction.guild)
-    
-    if not voice_client:
-        voice_client = await channel.connect()
-
-    await interaction.response.send_message("🎵 음악을 불러오는 중입니다...")
-
-    ydl_opts = {'format': 'bestaudio', 'noplaylist': 'True'}
-    ffmpeg_options = {
-        'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
-        'options': '-vn'
-    }
-    
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
-            audio_url = info['url']
-            
-            source = await discord.FFmpegOpusAudio.from_probe(audio_url, **ffmpeg_options)
-            
-            if voice_client.is_playing():
-                voice_client.stop()
-                
-            voice_client.play(source)
-            await interaction.followup.send(f"▶️ **{info['title']}** 재생을 시작합니다!")
-            
-    except Exception as e:
-        await interaction.followup.send("❌ 음악을 재생할 수 없습니다. (링크를 확인해 주세요)")
-
-@bot.tree.command(name="정지", description="음악을 끄고 봇을 내보냅니다.")
-async def stop(interaction: discord.Interaction):
-    voice_client = discord.utils.get(bot.voice_clients, guild=interaction.guild)
-    if voice_client and voice_client.is_connected():
-        await voice_client.disconnect()
-        await interaction.response.send_message("⏹️ 음악을 정지하고 채널에서 나갔습니다.")
-    else:
-        await interaction.response.send_message("봇이 음성 채널에 연결되어 있지 않습니다.")
-
 # ==================== 4. 유틸리티 & 편의 기능 ====================
 
 @bot.tree.command(name="아바타", description="유저의 아바타 프로필 사진을 가져옵니다.")
@@ -189,6 +144,55 @@ async def 핑(interaction: discord.Interaction):
     latency = round(bot.latency * 1000)
     await interaction.response.send_message(f'🏓 퐁! 현재 봇의 응답 속도는 **{latency}ms** 입니다.')
 
+@bot.tree.command(name="재생", description="유튜브 링크나 노래 제목을 입력해 음악을 재생합니다.")
+async def play(interaction: discord.Interaction, 검색어: str):
+    await interaction.response.defer()
+
+    if not interaction.user.voice:
+        await interaction.followup.send("❌ 먼저 음성 채널에 접속해 주세요!")
+        return
+
+    channel = interaction.user.voice.channel
+    voice_client = discord.utils.get(bot.voice_clients, guild=interaction.guild)
+    
+    if not voice_client:
+        voice_client = await channel.connect()
+
+    ydl_opts = {'format': 'bestaudio', 'noplaylist': 'True'}
+    ffmpeg_options = {
+        'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+        'options': '-vn'
+    }
+    
+    try:
+        ffmpeg_executable = imageio_ffmpeg.get_ffmpeg_exe()
+        
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            # 링크인지 노래 제목(검색어)인지 확인
+            if 검색어.startswith("http://") or 검색어.startswith("https://"):
+                info = ydl.extract_info(검색어, download=False)
+            else:
+                # 노래 제목일 경우 유튜브에서 검색 후 가장 첫 번째 결과 가져오기
+                info = ydl.extract_info(f"ytsearch:{검색어}", download=False)['entries'][0]
+                
+            audio_url = info['url']
+            title = info['title']
+            
+            source = await discord.FFmpegOpusAudio.from_probe(
+                audio_url, 
+                executable=ffmpeg_executable, 
+                **ffmpeg_options
+            )
+            
+            if voice_client.is_playing():
+                voice_client.stop()
+                
+            voice_client.play(source)
+            await interaction.followup.send(f"▶️ **{title}** 재생을 시작합니다!")
+            
+    except Exception as e:
+        print(f"Error: {e}")
+        await interaction.followup.send("❌ 음악을 찾을 수 없거나 재생할 수 없습니다.")
 
 # ==================== 5. 메뉴 및 도움말 ====================
 
